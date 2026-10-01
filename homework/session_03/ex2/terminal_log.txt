@@ -1,0 +1,335 @@
+NHẬT KÝ THAO TÁC TERMINAL - BÀI 2, SESSION 03
+Chủ đề      : Cấu hình trang lỗi tùy chỉnh (Custom Error Page 404) cho Nginx
+Ngày        : Thứ Sáu, 2026-10-02 (múi giờ +0700), khoảng 10:01 đến 10:21
+Máy chủ     : halo (Ubuntu 24.04.3 LTS), IP 103.116.104.228, Nginx 1.24.0 (Ubuntu)
+Máy cá nhân : Windows, Git Bash, IP công cộng 113.161.72.19, curl 8.15.0
+Hai cửa sổ terminal: Terminal 1 = SSH vào máy chủ (prompt devops@halo:~$),
+                     Terminal 2 = máy cá nhân (prompt $).
+
+================================================================================
+BƯỚC 1 [10:01:52] Terminal 2 (máy cá nhân): kiểm tra trang 404 mặc định TRƯỚC khi cấu hình
+================================================================================
+$ curl -i http://103.116.104.228/invalid-path-demo
+HTTP/1.1 404 Not Found
+Server: nginx/1.24.0 (Ubuntu)
+Date: Fri, 02 Oct 2026 03:01:52 GMT
+Content-Type: text/html
+Content-Length: 162
+Connection: keep-alive
+
+<html>
+<head><title>404 Not Found</title></head>
+<body>
+<center><h1>404 Not Found</h1></center>
+<hr><center>nginx/1.24.0 (Ubuntu)</center>
+</body>
+</html>
+
+(Nhận xét: đây là trang lỗi mặc định của Nginx, dài 162 byte và lộ phiên bản máy chủ.)
+
+================================================================================
+BƯỚC 2 [10:03:14] Terminal 1: đăng nhập SSH vào máy chủ (cổng 2222) và xem hiện trạng
+================================================================================
+$ ssh -p 2222 -i ~/.ssh/id_ed25519_ptit_s02 devops@103.116.104.228
+Welcome to Ubuntu 24.04.3 LTS (GNU/Linux 6.8.0-87-generic x86_64)
+
+ * Documentation:  https://help.ubuntu.com
+ * Management:     https://landscape.canonical.com
+ * Support:        https://ubuntu.com/pro
+
+Last login: Fri Oct  2 09:37:05 2026 from 113.161.72.19
+devops@halo:~$ nginx -v
+nginx version: nginx/1.24.0 (Ubuntu)
+devops@halo:~$ ls -l /etc/nginx/sites-enabled/
+total 0
+lrwxrwxrwx 1 root root 38 Oct  1 14:52 my-web.conf -> /etc/nginx/sites-available/my-web.conf
+devops@halo:~$ cat /etc/nginx/sites-available/my-web.conf
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+    root /var/www/my-web/html;
+    index index.html;
+    access_log /var/log/nginx/my-web.access.log;
+    error_log  /var/log/nginx/my-web.error.log;
+    location / {
+        try_files $uri $uri/ =404;
+    }
+}
+devops@halo:~$ ls -la /var/www/my-web/html
+total 12
+drwxr-x--- 2 devops www-data 4096 Oct  1 15:03 .
+drwxr-x--- 3 devops www-data 4096 Oct  1 14:58 ..
+-rw-r----- 1 devops www-data  623 Oct  1 15:03 index.html
+
+================================================================================
+BƯỚC 3 [10:06:20] Terminal 1: tạo 404.html (devops là owner của thư mục nên không cần sudo)
+================================================================================
+devops@halo:~$ cat > /var/www/my-web/html/404.html <<'EOF'
+> <!DOCTYPE html>
+> <html lang="vi">
+> <head>
+> <meta charset="utf-8">
+> <meta name="viewport" content="width=device-width, initial-scale=1">
+> <title>404 - Không tìm thấy trang</title>
+> <style>
+>   :root { color-scheme: light dark; }
+>   * { box-sizing: border-box; }
+>   body {
+>     margin: 0;
+>     min-height: 100vh;
+>     display: flex;
+>     align-items: center;
+>     justify-content: center;
+>     padding: 24px;
+>     font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+>     background: #f1f5f9;
+>     color: #1e293b;
+>   }
+>   .card {
+>     width: 100%;
+>     max-width: 520px;
+>     padding: 48px 32px;
+>     text-align: center;
+>     background: #ffffff;
+>     border-radius: 16px;
+>     box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+>   }
+>   .code {
+>     margin: 0;
+>     font-size: 96px;
+>     font-weight: 800;
+>     line-height: 1;
+>     letter-spacing: 4px;
+>     color: #2563eb;
+>   }
+>   h1 { margin: 16px 0 8px; font-size: 24px; }
+>   p { margin: 0 0 12px; line-height: 1.6; color: #475569; }
+>   .btn {
+>     display: inline-block;
+>     margin-top: 16px;
+>     padding: 12px 28px;
+>     background: #2563eb;
+>     color: #ffffff;
+>     border-radius: 8px;
+>     text-decoration: none;
+>     font-weight: 600;
+>   }
+>   .btn:hover { background: #1d4ed8; }
+>   .hint { margin: 24px 0 0; font-size: 13px; color: #94a3b8; }
+>   @media (prefers-color-scheme: dark) {
+>     body { background: #0f172a; color: #e2e8f0; }
+>     .card { background: #1e293b; box-shadow: none; }
+>     .code { color: #60a5fa; }
+>     p { color: #cbd5e1; }
+>     .btn { background: #3b82f6; }
+>     .btn:hover { background: #2563eb; }
+>     .hint { color: #64748b; }
+>   }
+> </style>
+> </head>
+> <body>
+>   <main class="card">
+>     <p class="code">404</p>
+>     <h1>Rất tiếc, không tìm thấy trang này</h1>
+>     <p>Đường dẫn bạn vừa truy cập không tồn tại hoặc đã được di chuyển. Vui lòng kiểm tra lại địa chỉ hoặc quay về trang chủ để tiếp tục.</p>
+>     <a class="btn" href="/">Quay về trang chủ</a>
+>     <p class="hint">Mã lỗi: 404 Not Found</p>
+>   </main>
+> </body>
+> </html>
+> EOF
+devops@halo:~$ chmod 640 /var/www/my-web/html/404.html
+devops@halo:~$ sudo chgrp www-data /var/www/my-web/html/404.html
+[sudo] password for devops:
+devops@halo:~$ ls -la /var/www/my-web/html
+total 16
+drwxr-x--- 2 devops www-data 4096 Oct  2 10:07 .
+drwxr-x--- 3 devops www-data 4096 Oct  1 14:58 ..
+-rw-r----- 1 devops www-data 2036 Oct  2 10:07 404.html
+-rw-r----- 1 devops www-data  623 Oct  1 15:03 index.html
+devops@halo:~$ wc -c /var/www/my-web/html/404.html
+2036 /var/www/my-web/html/404.html
+devops@halo:~$ stat -c '%n | %s byte | mtime: %y' /var/www/my-web/html/404.html
+/var/www/my-web/html/404.html | 2036 byte | mtime: 2026-10-02 10:07:34.581273094 +0700
+devops@halo:~$ file /var/www/my-web/html/404.html
+/var/www/my-web/html/404.html: HTML document, Unicode text, UTF-8 text
+
+(Nhận xét: tệp 2036 byte, lớn hơn ngưỡng 512 byte nên trình duyệt cũ không thay bằng trang lỗi riêng
+ của chúng. Tệp tạo bằng devops có nhóm devops, nên đã đổi nhóm sang www-data để worker của Nginx
+ đọc được qua quyền 640.)
+
+================================================================================
+BƯỚC 4 [10:09:41] Terminal 1: sao lưu và sửa Server Block
+================================================================================
+devops@halo:~$ sudo cp -p /etc/nginx/sites-available/my-web.conf /etc/nginx/sites-available/my-web.conf.bak-20261002
+devops@halo:~$ sudo tee /etc/nginx/sites-available/my-web.conf > /dev/null <<'EOF'
+> # /etc/nginx/sites-available/my-web.conf
+> # Server Block của trang web chính thức "my-web" (cổng 80).
+> # Bài 2 - Session 03: trang lỗi 404 tùy chỉnh, được bảo vệ bằng "internal".
+> 
+> server {
+>     # Lắng nghe cổng 80 trên IPv4 và IPv6; đây là server mặc định của cổng 80.
+>     listen 80 default_server;
+>     listen [::]:80 default_server;
+> 
+>     # "_" là tên giả, khớp với mọi Host (kể cả truy cập trực tiếp bằng IP).
+>     server_name _;
+> 
+>     # Thư mục gốc chứa mã nguồn website và tệp index.
+>     root /var/www/my-web/html;
+>     index index.html;
+> 
+>     # Nhật ký riêng cho site này, tách khỏi nhật ký chung của Nginx.
+>     access_log /var/log/nginx/my-web.access.log;
+>     error_log  /var/log/nginx/my-web.error.log;
+> 
+>     # Khi Nginx sinh ra mã trạng thái 404, thay vì trả trang mặc định,
+>     # thực hiện chuyển hướng NỘI BỘ sang URI /404.html để phục vụ trang tự thiết kế.
+>     # Không có dấu "=" (ví dụ "404 =200") nên mã trạng thái gửi cho client vẫn là 404.
+>     # Chỉ thị đặt ở cấp server nên được kế thừa bởi mọi location bên dưới.
+>     error_page 404 /404.html;
+> 
+>     location / {
+>         # Thử lần lượt tệp, thư mục tương ứng với URI; không có thì trả 404
+>         # (404 này sẽ kích hoạt error_page ở trên).
+>         try_files $uri $uri/ =404;
+>     }
+> 
+>     # Dấu "=" nghĩa là khớp CHÍNH XÁC đúng URI /404.html, có độ ưu tiên cao nhất,
+>     # không bị các location khác (prefix, regex) chen vào.
+>     location = /404.html {
+>         # Chỉ rõ thư mục chứa tệp lỗi, không phụ thuộc vào root ở cấp server.
+>         # Tệp thực tế được đọc: /var/www/my-web/html/404.html
+>         root /var/www/my-web/html;
+> 
+>         # Chỉ cho phép request nội bộ (error_page, try_files, rewrite, X-Accel-Redirect).
+>         # Request đến từ bên ngoài (curl, trình duyệt gõ /404.html) bị trả 404;
+>         # chính 404 đó lại kích hoạt error_page nên người dùng vẫn thấy trang tùy biến.
+>         internal;
+>     }
+> }
+> EOF
+devops@halo:~$ ls -l /etc/nginx/sites-available/my-web.conf*
+-rw-r--r-- 1 root root 2172 Oct  2 10:11 /etc/nginx/sites-available/my-web.conf
+-rw-r--r-- 1 root root  303 Oct  1 14:51 /etc/nginx/sites-available/my-web.conf.bak-20261002
+devops@halo:~$ grep -nE '^[[:space:]]*(error_page|location|internal|root)' /etc/nginx/sites-available/my-web.conf
+14:    root /var/www/my-web/html;
+25:    error_page 404 /404.html;
+27:    location / {
+35:    location = /404.html {
+38:        root /var/www/my-web/html;
+43:        internal;
+
+================================================================================
+BƯỚC 5 [10:12:40] Terminal 1: kiểm tra cú pháp rồi reload
+================================================================================
+devops@halo:~$ sudo nginx -t
+nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+nginx: configuration file /etc/nginx/nginx.conf test is successful
+devops@halo:~$ sudo systemctl reload nginx
+devops@halo:~$ systemctl status nginx --no-pager
+* nginx.service - A high performance web server and a reverse proxy server
+     Loaded: loaded (/usr/lib/systemd/system/nginx.service; enabled; preset: enabled)
+     Active: active (running) since Thu 2026-10-01 14:37:52 +0700; 19h ago
+       Docs: man:nginx(8)
+    Process: 1316 ExecStartPre=/usr/sbin/nginx -t -q -g daemon on; master_process on; (code=exited, status=0/SUCCESS)
+    Process: 1319 ExecStart=/usr/sbin/nginx -g daemon on; master_process on; (code=exited, status=0/SUCCESS)
+    Process: 4377 ExecReload=/usr/sbin/nginx -g daemon on; master_process on; -s reload (code=exited, status=0/SUCCESS)
+   Main PID: 1321 (nginx)
+      Tasks: 3 (limit: 4551)
+     Memory: 3.9M (peak: 5.6M)
+        CPU: 271ms
+     CGroup: /system.slice/nginx.service
+             |-1321 "nginx: master process /usr/sbin/nginx -g daemon on; master_process on;"
+             |-4379 "nginx: worker process"
+             `-4380 "nginx: worker process"
+
+Oct 02 10:13:02 halo systemd[1]: Reloading nginx.service - A high performance web server and a reverse proxy server...
+Oct 02 10:13:02 halo systemd[1]: Reloaded nginx.service - A high performance web server and a reverse proxy server.
+
+================================================================================
+BƯỚC 6 [10:14:09 - 10:15:50] Terminal 2 (máy cá nhân): kiểm tra kết quả
+================================================================================
+(6.1) Đường dẫn không tồn tại, chỉ lấy header:
+$ curl -I http://103.116.104.228/invalid-path-demo
+HTTP/1.1 404 Not Found
+Server: nginx/1.24.0 (Ubuntu)
+Date: Fri, 02 Oct 2026 03:14:09 GMT
+Content-Type: text/html
+Content-Length: 2036
+Last-Modified: Fri, 02 Oct 2026 03:07:34 GMT
+Connection: keep-alive
+ETag: "6abf1ff6-7f4"
+
+(6.2) Đường dẫn không tồn tại, xem nội dung trả về:
+$ curl -s http://103.116.104.228/invalid-path-demo | head
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>404 - Không tìm thấy trang</title>
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body {
+
+(6.3) Truy cập trực tiếp tệp lỗi, bị chặn bởi internal:
+$ curl -I http://103.116.104.228/404.html
+HTTP/1.1 404 Not Found
+Server: nginx/1.24.0 (Ubuntu)
+Date: Fri, 02 Oct 2026 03:14:58 GMT
+Content-Type: text/html
+Content-Length: 2036
+Last-Modified: Fri, 02 Oct 2026 03:07:34 GMT
+Connection: keep-alive
+ETag: "6abf1ff6-7f4"
+
+(6.4) Trang chủ vẫn hoạt động bình thường:
+$ curl -I http://103.116.104.228/
+HTTP/1.1 200 OK
+Server: nginx/1.24.0 (Ubuntu)
+Date: Fri, 02 Oct 2026 03:15:20 GMT
+Content-Type: text/html
+Content-Length: 623
+Last-Modified: Thu, 01 Oct 2026 08:03:19 GMT
+Connection: keep-alive
+ETag: "6abe13c7-26f"
+Accept-Ranges: bytes
+
+(6.5) Đối chiếu mã trạng thái và số byte tải về của hai đường dẫn:
+$ curl -s -o /dev/null -w '%{http_code} %{size_download}\n' http://103.116.104.228/invalid-path-demo http://103.116.104.228/404.html
+404 2036
+404 2036
+
+(6.6) Lọc các thành phần tùy biến trong nội dung trang:
+$ curl -s http://103.116.104.228/invalid-path-demo | grep -E '<title>|class="code"|<h1>|class="btn"'
+<title>404 - Không tìm thấy trang</title>
+    <p class="code">404</p>
+    <h1>Rất tiếc, không tìm thấy trang này</h1>
+    <a class="btn" href="/">Quay về trang chủ</a>
+
+================================================================================
+BƯỚC 7 [10:17:30] Terminal 1: đối chiếu nhật ký của Nginx
+================================================================================
+devops@halo:~$ sudo tail -n 7 /var/log/nginx/my-web.access.log
+113.161.72.19 - - [02/Oct/2026:10:01:52 +0700] "GET /invalid-path-demo HTTP/1.1" 404 162 "-" "curl/8.15.0"
+113.161.72.19 - - [02/Oct/2026:10:14:09 +0700] "HEAD /invalid-path-demo HTTP/1.1" 404 0 "-" "curl/8.15.0"
+113.161.72.19 - - [02/Oct/2026:10:14:31 +0700] "GET /invalid-path-demo HTTP/1.1" 404 2036 "-" "curl/8.15.0"
+113.161.72.19 - - [02/Oct/2026:10:14:58 +0700] "HEAD /404.html HTTP/1.1" 404 0 "-" "curl/8.15.0"
+113.161.72.19 - - [02/Oct/2026:10:15:20 +0700] "HEAD / HTTP/1.1" 200 0 "-" "curl/8.15.0"
+113.161.72.19 - - [02/Oct/2026:10:15:50 +0700] "GET /invalid-path-demo HTTP/1.1" 404 2036 "-" "curl/8.15.0"
+113.161.72.19 - - [02/Oct/2026:10:15:50 +0700] "GET /404.html HTTP/1.1" 404 2036 "-" "curl/8.15.0"
+devops@halo:~$ sudo wc -l /var/log/nginx/my-web.error.log
+0 /var/log/nginx/my-web.error.log
+
+(Nhận xét: error log trống vì try_files tự kiểm tra tệp và trả 404 theo chỉ định, không ghi lỗi open();
+ con số 2036 trong access log là kích thước trang tùy biến đã gửi đi.)
+
+================================================================================
+BƯỚC 8 [10:20:47] Terminal 1: kết thúc phiên
+================================================================================
+devops@halo:~$ exit
+logout
+Connection to 103.116.104.228 closed.
